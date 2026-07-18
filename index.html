@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaInspect - All-in-One Metadata Extractor & Privacy Cleaner</title>
+    <!-- Tailwind CSS for modern responsive utility-first styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons for clean UI symbology -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet JS Map CSS & Engine for plotting photo coordinates -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- ExifReader for complete photographic metadata inspection -->
+    <script src="https://cdn.jsdelivr.net/npm/exifreader@4.23.0/dist/exif-reader.js"></script>
+    <!-- JSMediaTags for audio ID3 file tag extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    <!-- PDF.js for reading deep document descriptors -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .ad-placeholder {
+            background: linear-gradient(135deg, #f8fafc 25%, #f1f5f9 25%, #f1f5f9 50%, #f8fafc 50%, #f8fafc 75%, #f1f5f9 75%, #f1f5f9 100%);
+            background-size: 30px 30px;
+        }
+        /* Custom scrollbar for raw JSON displays */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        #map {
+            height: 250px;
+            border-radius: 12px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Top-Level Navigation Brand -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-user-secret text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-slate-900">Meta<span class="text-indigo-600">Inspect</span></h1>
+                    <p class="text-xxs text-slate-500 font-medium tracking-wide">UNIVERSAL METADATA ENGINE</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+                    Local Browser Processing
+                </span>
+                <span class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium px-3 py-1.5 rounded-lg cursor-help border border-slate-200 transition" id="infoTrigger">
+                    <i class="fa-solid fa-circle-info mr-1"></i> Privacy Info
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Ad Space Header Banner (728x90 style responsive) -->
+    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-6">
+        <div class="ad-placeholder border border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[90px] transition hover:border-slate-300">
+            <span class="text-xxs font-bold tracking-wider text-slate-400 uppercase mb-1">Advertisement</span>
+            <!-- USER: Paste Ad Client Code Here -->
+            <div class="text-xs text-slate-400 italic font-mono">[Place Header Ad Script Here - Responsive Banner]</div>
+        </div>
+    </div>
+
+    <!-- Main Application Canvas Workspace -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Sidebar / Ad / Explainer Segment -->
+        <section class="lg:col-span-3 order-last lg:order-first space-y-6">
+            <!-- File Compatibility Indicators -->
+            <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
+                    <i class="fa-solid fa-circle-check text-indigo-500 mr-2"></i> Supported Formats
+                </h3>
+                <div class="space-y-3.5">
+                    <div class="flex items-start space-x-3">
+                        <div class="bg-blue-50 text-blue-600 p-2 rounded-lg text-xs mt-0.5"><i class="fa-regular fa-image"></i></div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-800">Images</h4>
+                            <p class="text-[11px] text-slate-500">JPG, PNG, WEBP, EXIF, GPS tags</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <div class="bg-amber-50 text-amber-600 p-2 rounded-lg text-xs mt-0.5"><i class="fa-regular fa-file-audio"></i></div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-800">Audio & Music</h4>
+                            <p class="text-[11px] text-slate-500">MP3, WAV, ID3 structure details</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <div class="bg-red-50 text-red-600 p-2 rounded-lg text-xs mt-0.5"><i class="fa-regular fa-file-pdf"></i></div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-800">Documents</h4>
+                            <p class="text-[11px] text-slate-500">PDF creation dates, authors, permissions</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <div class="bg-purple-50 text-purple-600 p-2 rounded-lg text-xs mt-0.5"><i class="fa-solid fa-code"></i></div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-800">SEO Pasteboard</h4>
+                            <p class="text-[11px] text-slate-500">Extract tags from copied HTML web code</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contextual Navigation Sidebar Ad (300x250 Medium Rectangle style) -->
+            <div class="ad-placeholder border border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[250px] transition hover:border-slate-300">
+                <span class="text-xxs font-bold tracking-wider text-slate-400 uppercase mb-2">Advertisement</span>
+                <!-- USER: Paste Sidebar Ad Client Code Here -->
+                <div class="text-xs text-slate-400 italic text-center font-mono px-4">[Place Sidebar Ad Script Here - 300x250 or Responsive]</div>
+            </div>
+
+            <!-- Privacy Guarantee Message -->
+            <div class="bg-indigo-950 text-white rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                <div class="absolute right-0 bottom-0 opacity-10 translate-x-4 translate-y-4">
+                    <i class="fa-solid fa-shield-halved text-9xl"></i>
+                </div>
+                <h3 class="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-2 flex items-center">
+                    <i class="fa-solid fa-lock text-emerald-400 mr-2"></i> Zero Server Uploads
+                </h3>
+                <p class="text-xs text-indigo-100 leading-relaxed">
+                    This software reads data buffers directly via Javascript in your web browser environment. Files are processed locally. Your network traffic never sends file payloads to any server, guaranteeing perfect safety.
+                </p>
+            </div>
+        </section>
+
+        <!-- Center/Right Area: Dynamic Dropzone and Analytics Desk -->
+        <section class="lg:col-span-9 space-y-6">
+
+            <!-- System Message Center -->
+            <div id="noticeBanner" class="hidden flex items-center justify-between p-4 rounded-xl border transition duration-300">
+                <div class="flex items-center space-x-3">
+                    <span id="noticeIcon" class="text-lg"></span>
+                    <p id="noticeText" class="text-xs font-medium"></p>
+                </div>
+                <button onclick="dismissNotice()" class="text-slate-400 hover:text-slate-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Navigation Mode Switchers -->
+            <div class="bg-white p-1 rounded-xl border border-slate-200 flex space-x-1 shadow-xs">
+                <button id="modeFiles" class="flex-1 py-3 text-xs font-semibold text-indigo-600 bg-indigo-50/70 rounded-lg transition flex items-center justify-center space-x-2">
+                    <i class="fa-regular fa-file"></i>
+                    <span>Drop/Browse Files</span>
+                </button>
+                <button id="modeSeo" class="flex-1 py-3 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-bullseye"></i>
+                    <span>Paste HTML / SEO Tags</span>
+                </button>
+            </div>
+
+            <!-- Drag & Drop Zone Component -->
+            <div id="filePane" class="transition duration-300">
+                <div id="dropzone" class="border-2 border-dashed border-indigo-200 bg-white hover:border-indigo-500 hover:bg-indigo-50/20 rounded-2xl p-12 text-center cursor-pointer transition shadow-xs flex flex-col items-center justify-center min-h-[300px]">
+                    <input type="file" id="fileInput" class="hidden" />
+                    
+                    <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl animate-bounce"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-800">Drop your file here, or click to browse</h3>
+                    <p class="text-xs text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+                        Securely read metadata from Images, Audio files, PDFs, or Videos directly in your browser.
+                    </p>
+                    <div class="mt-6 flex flex-wrap gap-2 justify-center">
+                        <span class="text-[10px] font-semibold bg-slate-100 px-2.5 py-1 text-slate-600 rounded-md">JPG</span>
+                        <span class="text-[10px] font-semibold bg-slate-100 px-2.5 py-1 text-slate-600 rounded-md">PNG</span>
+                        <span class="text-[10px] font-semibold bg-slate-100 px-2.5 py-1 text-slate-600 rounded-md">WEBP</span>
+                        <span class="text-[10px] font-semibold bg-slate-100 px-2.5 py-1 text-slate-600 rounded-md">MP3</span>
+                        <span class="text-[10px] font-semibold bg-slate-100 px-2.5 py-1 text-slate-600 rounded-md">PDF</span>
+                        <span class="text-[10px] font-semibold bg-slate-100 px-2.5 py-1 text-slate-600 rounded-md">MP4</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Direct HTML Code Analyzer Segment -->
+            <div id="seoPane" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Inspect Raw HTML Meta Tags</h3>
+                    <p class="text-xs text-slate-500 mt-1">Copy the raw HTML or Header tags of any web page and paste it below to see SEO structures.</p>
+                </div>
+                <textarea id="htmlInput" placeholder="Paste HTML <head> code here..." class="w-full h-44 p-4 text-xs font-mono bg-slate-900 text-slate-200 border border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none custom-scroll resize-none" spellcheck="false"></textarea>
+                <div class="flex justify-end">
+                    <button id="analyzeSeoBtn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-100 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Parse Web Tags</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Output Inspector Deck (Hidden until loaded) -->
+            <div id="inspectorDeck" class="hidden space-y-6">
+                
+                <!-- Action / Detail Bar -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div class="flex items-center space-x-3.5">
+                        <div id="loadedFileIcon" class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg shadow-inner">
+                            <i class="fa-regular fa-image"></i>
+                        </div>
+                        <div>
+                            <h4 id="loadedFileName" class="text-sm font-bold text-slate-900 truncate max-w-[240px] md:max-w-xs">file.jpg</h4>
+                            <p id="loadedFileTypeSize" class="text-xs text-slate-500 font-medium mt-0.5">JPEG File &middot; 2.4 MB</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                        <button id="cleanAndSaveBtn" class="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <span>Clean & Save As Safe Copy</span>
+                        </button>
+                        <button id="resetAppBtn" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>Clear File</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- GPS Map Frame (Hidden when no latitude/longitude) -->
+                <div id="mapWrapper" class="hidden bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-map-pin text-rose-500 animate-bounce"></i>
+                            <span>Embedded Coordinates Found</span>
+                        </h4>
+                        <span id="gpsCoordinateValues" class="text-xs font-mono bg-slate-100 px-2 py-1 text-slate-600 rounded-lg">45.0, -93.0</span>
+                    </div>
+                    <div id="map"></div>
+                </div>
+
+                <!-- Structured Metadata Panel Tabs -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                    <div class="border-b border-slate-200 bg-slate-50/50 px-5 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center">
+                            <i class="fa-solid fa-chart-bar-filter text-indigo-500 mr-2"></i> File Property Registry
+                        </span>
+                        <div class="flex bg-slate-200 p-1 rounded-xl text-xs w-full sm:w-auto">
+                            <button id="tabTableBtn" class="flex-1 sm:flex-initial px-4 py-1.5 font-bold bg-white text-indigo-600 rounded-lg shadow-xs flex items-center justify-center space-x-1.5 transition">
+                                <i class="fa-solid fa-list"></i>
+                                <span>Human Readable</span>
+                            </button>
+                            <button id="tabJsonBtn" class="flex-1 sm:flex-initial px-4 py-1.5 font-bold text-slate-600 hover:text-indigo-600 rounded-lg flex items-center justify-center space-x-1.5 transition">
+                                <i class="fa-solid fa-code"></i>
+                                <span>Raw JSON</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Property Key/Value Grid -->
+                    <div id="tableOutputPane" class="divide-y divide-slate-100 max-h-[500px] overflow-y-auto custom-scroll">
+                        <!-- Instantiated at run-time -->
+                    </div>
+
+                    <!-- Raw JSON Viewer -->
+                    <div id="jsonOutputPane" class="hidden relative">
+                        <pre id="rawJsonBlock" class="p-5 bg-slate-900 text-emerald-400 text-xs font-mono overflow-auto max-h-[500px] custom-scroll leading-relaxed"></pre>
+                        <button id="copyJsonBtn" class="absolute top-4 right-4 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>Copy JSON</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Info Dialog Modal Backdrop (Hidden default) -->
+    <div id="infoModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-100 max-w-lg w-full p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
+            <button id="closeInfoModal" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="bg-indigo-50 text-indigo-600 p-2 rounded-xl text-lg"><i class="fa-solid fa-shield-halved"></i></div>
+                <h3 class="text-base font-bold text-slate-900">Your Privacy, Guaranteed</h3>
+            </div>
+            <div class="space-y-3.5 text-xs text-slate-600 leading-relaxed">
+                <p>
+                    Unlike alternative services online, <strong>MetaInspect</strong> operates exclusively inside your browser virtual execution space. We never send your documents, photos, or audio recordings over the network.
+                </p>
+                <p>
+                    <strong>Why strip metadata?</strong> Hidden blocks such as EXIF contain device identity strings, timestamp history, and exact coordinates where images were recorded. Removing them preserves privacy.
+                </p>
+                <p class="font-medium text-slate-800">
+                    <i class="fa-solid fa-circle-nodes text-indigo-500 mr-1"></i> How cleaner works:
+                </p>
+                <ul class="list-disc pl-5 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <li>Decodes underlying image structure to raw pixel coordinates.</li>
+                    <li>Re-projects data onto a clean sandbox canvas construct.</li>
+                    <li>Re-encodes original data format with zero residual tags.</li>
+                </ul>
+            </div>
+            <button id="closeInfoModalBtn" class="mt-6 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Understood</button>
+        </div>
+    </div>
+
+    <!-- Ad Space Footer Block -->
+    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 my-6">
+        <div class="ad-placeholder border border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[90px] transition hover:border-slate-300">
+            <span class="text-xxs font-bold tracking-wider text-slate-400 uppercase mb-1">Advertisement</span>
+            <!-- USER: Paste Footer Ad Client Code Here -->
+            <div class="text-xs text-slate-400 italic font-mono">[Place Footer Ad Script Here - Responsive Banner]</div>
+        </div>
+    </div>
+
+    <!-- Website Standard Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-auto text-center">
+        <p class="text-xs text-slate-400 font-medium">© 2026 MetaInspect Tool. Operating 100% Client-Side. No servers were harmed.</p>
+    </footer>
+
+    <!-- Main Application Core Scripts -->
+    <script>
+        // PDFJS Worker Definition Setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // DOM Object Register
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const filePane = document.getElementById('filePane');
+        const seoPane = document.getElementById('seoPane');
+        const modeFiles = document.getElementById('modeFiles');
+        const modeSeo = document.getElementById('modeSeo');
+        const htmlInput = document.getElementById('htmlInput');
+        const analyzeSeoBtn = document.getElementById('analyzeSeoBtn');
+        const inspectorDeck = document.getElementById('inspectorDeck');
+        const loadedFileName = document.getElementById('loadedFileName');
+        const loadedFileTypeSize = document.getElementById('loadedFileTypeSize');
+        const loadedFileIcon = document.getElementById('loadedFileIcon');
+        const tableOutputPane = document.getElementById('tableOutputPane');
+        const jsonOutputPane = document.getElementById('jsonOutputPane');
+        const rawJsonBlock = document.getElementById('rawJsonBlock');
+        const tabTableBtn = document.getElementById('tabTableBtn');
+        const tabJsonBtn = document.getElementById('tabJsonBtn');
+        const copyJsonBtn = document.getElementById('copyJsonBtn');
+        const cleanAndSaveBtn = document.getElementById('cleanAndSaveBtn');
+        const resetAppBtn = document.getElementById('resetAppBtn');
+        const mapWrapper = document.getElementById('mapWrapper');
+        const gpsCoordinateValues = document.getElementById('gpsCoordinateValues');
+        const noticeBanner = document.getElementById('noticeBanner');
+        const noticeIcon = document.getElementById('noticeIcon');
+        const noticeText = document.getElementById('noticeText');
+        
+        // Modal Control Dom elements
+        const infoTrigger = document.getElementById('infoTrigger');
+        const infoModal = document.getElementById('infoModal');
+        const closeInfoModal = document.getElementById('closeInfoModal');
+        const closeInfoModalBtn = document.getElementById('closeInfoModalBtn');
+
+        // Application State Management
+        let loadedFile = null;
+        let activeTab = 'table';
+        let metadataRegistry = {};
+        let mapInstance = null;
+        let currentMode = 'file';
+
+        // Navigation View Toggling
+        modeFiles.addEventListener('click', () => switchInputMode('file'));
+        modeSeo.addEventListener('click', () => switchInputMode('seo'));
+
+        function switchInputMode(mode) {
+            currentMode = mode;
+            if (mode === 'file') {
+                modeFiles.className = 'flex-1 py-3 text-xs font-semibold text-indigo-600 bg-indigo-50/70 rounded-lg transition flex items-center justify-center space-x-2';
+                modeSeo.className = 'flex-1 py-3 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition flex items-center justify-center space-x-2';
+                filePane.classList.remove('hidden');
+                seoPane.classList.add('hidden');
+            } else {
+                modeSeo.className = 'flex-1 py-3 text-xs font-semibold text-indigo-600 bg-indigo-50/70 rounded-lg transition flex items-center justify-center space-x-2';
+                modeFiles.className = 'flex-1 py-3 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition flex items-center justify-center space-x-2';
+                filePane.classList.add('hidden');
+                seoPane.classList.remove('hidden');
+            }
+        }
+
+        // Dropzone Interaction Events
+        dropzone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => processIncomingFile(e.target.files[0]));
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.replace('border-indigo-200', 'border-indigo-500');
+            dropzone.classList.add('bg-indigo-50/40');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.replace('border-indigo-500', 'border-indigo-200');
+            dropzone.classList.remove('bg-indigo-50/40');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.replace('border-indigo-500', 'border-indigo-200');
+            dropzone.classList.remove('bg-indigo-50/40');
+            if (e.dataTransfer.files.length) {
+                processIncomingFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Parse Pasted SEO HTML action click trigger
+        analyzeSeoBtn.addEventListener('click', () => {
+            const rawHtml = htmlInput.value.trim();
+            if (!rawHtml) {
+                renderSystemBanner('error', 'Please paste raw HTML code to begin extraction.');
+                return;
+            }
+            processIncomingHtml(rawHtml);
+        });
+
+        // Tab Toggle Handlers
+        tabTableBtn.addEventListener('click', () => toggleDetailsTab('table'));
+        tabJsonBtn.addEventListener('click', () => toggleDetailsTab('json'));
+
+        function toggleDetailsTab(tab) {
+            activeTab = tab;
+            if (tab === 'table') {
+                tabTableBtn.className = 'px-4 py-1.5 font-bold bg-white text-indigo-600 rounded-lg shadow-xs flex items-center justify-center space-x-1.5 transition';
+                tabJsonBtn.className = 'px-4 py-1.5 font-bold text-slate-600 hover:text-indigo-600 rounded-lg flex items-center justify-center space-x-1.5 transition';
+                tableOutputPane.classList.remove('hidden');
+                jsonOutputPane.classList.add('hidden');
+            } else {
+                tabJsonBtn.className = 'px-4 py-1.5 font-bold bg-white text-indigo-600 rounded-lg shadow-xs flex items-center justify-center space-x-1.5 transition';
+                tabTableBtn.className = 'px-4 py-1.5 font-bold text-slate-600 hover:text-indigo-600 rounded-lg flex items-center justify-center space-x-1.5 transition';
+                tableOutputPane.classList.add('hidden');
+                jsonOutputPane.classList.remove('hidden');
+            }
+        }
+
+        // Central Routing Machine for File Processing
+        async function processIncomingFile(file) {
+            if (!file) return;
+            loadedFile = file;
+            metadataRegistry = {};
+            dismissNotice();
+            resetInspectDisplays();
+
+            loadedFileName.textContent = file.name;
+            loadedFileTypeSize.textContent = `${humanReadableSize(file.size)} &middot; ${file.type || 'Unknown Format'}`;
+
+            // Visual Icon Determinator
+            let fontAwesomeIcon = '<i class="fa-regular fa-file"></i>';
+            if (file.type.startsWith('image/')) fontAwesomeIcon = '<i class="fa-regular fa-image"></i>';
+            else if (file.type.startsWith('audio/')) fontAwesomeIcon = '<i class="fa-regular fa-file-audio"></i>';
+            else if (file.type.startsWith('video/')) fontAwesomeIcon = '<i class="fa-regular fa-file-video"></i>';
+            else if (file.type === 'application/pdf') fontAwesomeIcon = '<i class="fa-regular fa-file-pdf"></i>';
+            loadedFileIcon.innerHTML = fontAwesomeIcon;
+
+            // Display and setup clean buttons based on capability (images/pdfs can be sanitized or simulated)
+            if (file.type.startsWith('image/')) {
+                cleanAndSaveBtn.classList.remove('hidden');
+            } else {
+                // Stripping unsupported files locally is not straightforward natively. Give warning.
+                cleanAndSaveBtn.classList.add('hidden');
+            }
+
+            filePane.classList.add('hidden');
+            seoPane.classList.add('hidden');
+            inspectorDeck.classList.remove('hidden');
+
+            // Dispatch parsing processes
+            try {
+                if (file.type.startsWith('image/')) {
+                    await parseImageMetadata(file);
+                } else if (file.type.startsWith('audio/')) {
+                    await parseAudioMetadata(file);
+                } else if (file.type.startsWith('video/')) {
+                    await parseVideoMetadata(file);
+                } else if (file.type === 'application/pdf') {
+                    await parsePdfMetadata(file);
+                } else {
+                    renderSystemBanner('warn', 'Format unsupported for deep parser, showing basic parameters.');
+                    populateBasicMetadata(file);
+                }
+            } catch (err) {
+                console.error(err);
+                renderSystemBanner('error', `Failed during file inspection: ${err.message}`);
+                populateBasicMetadata(file);
+            }
+        }
+
+        // Basic Container Attribute Filler fallback
+        function populateBasicMetadata(file) {
+            metadataRegistry = {
+                "File Name": file.name,
+                "File Size Bytes": file.size,
+                "MIME Type": file.type || "unknown/binary",
+                "Last Modification Timestamp": new Date(file.lastModified).toISOString(),
+                "Client-Side System Integrity Status": "Analyzed successfully without servers"
+            };
+            publishMetadataToUi();
+        }
+
+        // Image Metadata Analyzer (ExifReader Engine integration)
+        async function parseImageMetadata(file) {
+            try {
+                const tags = await ExifReader.load(file);
+                metadataRegistry["File Name"] = file.name;
+                metadataRegistry["MIME Type"] = file.type;
+                metadataRegistry["Size"] = humanReadableSize(file.size);
+
+                // Build humanized tags array
+                for (const [key, value] of Object.entries(tags)) {
+                    // Skip very long base64 structures like inner thumbnails
+                    if (key === 'Thumbnail' || value.value === undefined) continue;
+                    metadataRegistry[key] = value.description || value.value;
+                }
+
+                // Check and initialize GPS Coordinates
+                let latitude = null;
+                let longitude = null;
+
+                if (tags['GPSLatitude'] && tags['GPSLongitude']) {
+                    const lat = tags['GPSLatitude'].description;
+                    const lon = tags['GPSLongitude'].description;
+                    const latRef = tags['GPSLatitudeRef'] ? tags['GPSLatitudeRef'].description : 'N';
+                    const lonRef = tags['GPSLongitudeRef'] ? tags['GPSLongitudeRef'].description : 'W';
+
+                    // Parse potential GPS data structures dynamically
+                    if (typeof lat === 'number' && typeof lon === 'number') {
+                        latitude = lat;
+                        longitude = lon;
+                    } else if (Array.isArray(lat) || typeof lat === 'string') {
+                        latitude = convertGpsToDecimal(tags['GPSLatitude'].value, latRef);
+                        longitude = convertGpsToDecimal(tags['GPSLongitude'].value, lonRef);
+                    }
+                }
+
+                if (latitude && longitude && !isNaN(latitude) && !isNaN(longitude)) {
+                    renderMapWidget(latitude, longitude);
+                } else {
+                    mapWrapper.classList.add('hidden');
+                }
+
+                publishMetadataToUi();
+            } catch (err) {
+                renderSystemBanner('warn', 'No standard EXIF structures found on this image.');
+                populateBasicMetadata(file);
+            }
+        }
+
+        // Converts DMS structures (Degrees, Minutes, Seconds) to Decimal formats
+        function convertGpsToDecimal(gpsValues, ref) {
+            if (!gpsValues || gpsValues.length < 3) return null;
+            // Parse degrees, minutes, seconds as values
+            const d = parseFloat(gpsValues[0]);
+            const m = parseFloat(gpsValues[1]);
+            const s = parseFloat(gpsValues[2]);
+            
+            let decimal = d + (m / 60) + (s / 3600);
+            if (ref === 'S' || ref === 'W' || ref === 'South' || ref === 'West') {
+                decimal = -decimal;
+            }
+            return decimal;
+        }
+
+        // Live Interactive Map Generator with Leaflet.js
+        function renderMapWidget(lat, lon) {
+            mapWrapper.classList.remove('hidden');
+            gpsCoordinateValues.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+            setTimeout(() => {
+                if (mapInstance) {
+                    mapInstance.remove();
+                }
+                
+                mapInstance = L.map('map').setView([lat, lon], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(mapInstance);
+
+                L.marker([lat, lon]).addTo(mapInstance)
+                    .bindPopup(`<b>Approximate Location</b><br>Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`)
+                    .openPopup();
+            }, 100);
+        }
+
+        // Audio ID3 Tag Parser (Using jsmediatags script)
+        async function parseAudioMetadata(file) {
+            window.jsmediatags.read(file, {
+                onSuccess: function(tag) {
+                    metadataRegistry["File Name"] = file.name;
+                    metadataRegistry["MIME Type"] = file.type;
+                    metadataRegistry["Size"] = humanReadableSize(file.size);
+
+                    if (tag.tags) {
+                        if (tag.tags.title) metadataRegistry["Song Title"] = tag.tags.title;
+                        if (tag.tags.artist) metadataRegistry["Artist"] = tag.tags.artist;
+                        if (tag.tags.album) metadataRegistry["Album"] = tag.tags.album;
+                        if (tag.tags.year) metadataRegistry["Year"] = tag.tags.year;
+                        if (tag.tags.track) metadataRegistry["Track #"] = tag.tags.track;
+                        if (tag.tags.genre) metadataRegistry["Genre"] = tag.tags.genre;
+                    }
+
+                    // Native browser capabilities to inspect audio properties (duration etc)
+                    const audioEl = document.createElement('audio');
+                    audioEl.src = URL.createObjectURL(file);
+                    audioEl.addEventListener('loadedmetadata', () => {
+                        metadataRegistry["Duration (seconds)"] = audioEl.duration.toFixed(2) + " seconds";
+                        URL.revokeObjectURL(audioEl.src);
+                        publishMetadataToUi();
+                    });
+                },
+                onError: function(error) {
+                    // Fail gracefully to fallback parameter reading
+                    populateBasicMetadata(file);
+                }
+            });
+        }
+
+        // HTML5 Video Container Inspector
+        async function parseVideoMetadata(file) {
+            metadataRegistry["File Name"] = file.name;
+            metadataRegistry["MIME Type"] = file.type;
+            metadataRegistry["Size"] = humanReadableSize(file.size);
+
+            const videoEl = document.createElement('video');
+            videoEl.src = URL.createObjectURL(file);
+            videoEl.addEventListener('loadedmetadata', () => {
+                metadataRegistry["Duration"] = videoEl.duration.toFixed(2) + " seconds";
+                metadataRegistry["Resolution Dimensions"] = `${videoEl.videoWidth} x ${videoEl.videoHeight}`;
+                URL.revokeObjectURL(videoEl.src);
+                publishMetadataToUi();
+            });
+            videoEl.addEventListener('error', () => {
+                populateBasicMetadata(file);
+            });
+        }
+
+        // PDF Deep Analysis Document Engine (Via PDF.js script integrations)
+        async function parsePdfMetadata(file) {
+            const fileReader = new FileReader();
+            fileReader.onload = async function() {
+                const typedarray = new Uint8Array(this.result);
+                try {
+                    const loadingTask = pdfjsLib.getDocument(typedarray);
+                    const pdf = await loadingTask.promise;
+                    const metadata = await pdf.getMetadata();
+
+                    metadataRegistry["File Name"] = file.name;
+                    metadataRegistry["MIME Type"] = file.type;
+                    metadataRegistry["Total Pages"] = pdf.numPages;
+
+                    if (metadata.info) {
+                        if (metadata.info.Title) metadataRegistry["Document Title"] = metadata.info.Title;
+                        if (metadata.info.Author) metadataRegistry["Author Creator"] = metadata.info.Author;
+                        if (metadata.info.Subject) metadataRegistry["Subject"] = metadata.info.Subject;
+                        if (metadata.info.Producer) metadataRegistry["PDF Producer Tools"] = metadata.info.Producer;
+                        if (metadata.info.Creator) metadataRegistry["Application Creator"] = metadata.info.Creator;
+                        if (metadata.info.CreationDate) metadataRegistry["Creation Date"] = metadata.info.CreationDate;
+                        if (metadata.info.ModDate) metadataRegistry["Modification Date"] = metadata.info.ModDate;
+                    }
+
+                    publishMetadataToUi();
+                } catch (pdfErr) {
+                    renderSystemBanner('error', 'Unable to parse structural components inside this PDF.');
+                    populateBasicMetadata(file);
+                }
+            };
+            fileReader.readAsArrayBuffer(file);
+        }
+
+        // Web SEO Pasteboard HTML Tag Extractor
+        function processIncomingHtml(rawHtml) {
+            metadataRegistry = {};
+            dismissNotice();
+            resetInspectDisplays();
+
+            loadedFileName.textContent = "Raw HTML Source Snippet";
+            loadedFileTypeSize.textContent = "SEO Extraction Mode";
+            loadedFileIcon.innerHTML = '<i class="fa-solid fa-code"></i>';
+            cleanAndSaveBtn.classList.add('hidden');
+
+            // Creating a Virtual Sandbox DOM elements context safely
+            const virtualDoc = document.implementation.createHTMLDocument("Sandbox");
+            virtualDoc.documentElement.innerHTML = rawHtml;
+
+            // Process typical HTML page parameters
+            const titleTag = virtualDoc.querySelector('title');
+            metadataRegistry["SEO Meta Title"] = titleTag ? titleTag.innerText : "Not Present";
+
+            const metaDescription = virtualDoc.querySelector('meta[name="description"]');
+            metadataRegistry["SEO Meta Description"] = metaDescription ? metaDescription.getAttribute('content') : "Not Present";
+
+            const metaKeywords = virtualDoc.querySelector('meta[name="keywords"]');
+            metadataRegistry["SEO Meta Keywords"] = metaKeywords ? metaKeywords.getAttribute('content') : "Not Present";
+
+            const robots = virtualDoc.querySelector('meta[name="robots"]');
+            metadataRegistry["Robots Parameters"] = robots ? robots.getAttribute('content') : "Not Present";
+
+            // Grab OpenGraph social targets
+            const ogTitle = virtualDoc.querySelector('meta[property="og:title"]');
+            metadataRegistry["OG Title Tag"] = ogTitle ? ogTitle.getAttribute('content') : "Not Present";
+
+            const ogDesc = virtualDoc.querySelector('meta[property="og:description"]');
+            metadataRegistry["OG Description"] = ogDesc ? ogDesc.getAttribute('content') : "Not Present";
+
+            const ogImage = virtualDoc.querySelector('meta[property="og:image"]');
+            metadataRegistry["OG Share Image URL"] = ogImage ? ogImage.getAttribute('content') : "Not Present";
+
+            // Grab Twitter target specs
+            const twTitle = virtualDoc.querySelector('meta[name="twitter:title"]');
+            metadataRegistry["Twitter Title"] = twTitle ? twTitle.getAttribute('content') : "Not Present";
+
+            const twDesc = virtualDoc.querySelector('meta[name="twitter:description"]');
+            metadataRegistry["Twitter Description"] = twDesc ? twDesc.getAttribute('content') : "Not Present";
+
+            filePane.classList.add('hidden');
+            seoPane.classList.add('hidden');
+            inspectorDeck.classList.remove('hidden');
+
+            publishMetadataToUi();
+            renderSystemBanner('success', 'Successfully processed SEO tags from raw HTML code!');
+        }
+
+        // Generate Human Table and Raw JSON display representations
+        function publishMetadataToUi() {
+            tableOutputPane.innerHTML = '';
+            rawJsonBlock.textContent = JSON.stringify(metadataRegistry, null, 2);
+
+            if (Object.keys(metadataRegistry).length === 0) {
+                tableOutputPane.innerHTML = `
+                    <div class="p-8 text-center text-slate-500 text-xs">
+                        <i class="fa-solid fa-triangle-exclamation text-xl mb-2 text-amber-500"></i><br>
+                        No key descriptors found for parsing.
+                    </div>
+                `;
+                return;
+            }
+
+            for (const [key, value] of Object.entries(metadataRegistry)) {
+                const itemRow = document.createElement('div');
+                itemRow.className = 'flex flex-col md:flex-row md:items-center py-3.5 px-5 text-xs hover:bg-slate-50 transition duration-150';
+                itemRow.innerHTML = `
+                    <div class="md:w-1/3 font-semibold text-slate-600 truncate pr-4 mb-1 md:mb-0">${sanitizeHtml(key)}</div>
+                    <div class="md:w-2/3 font-mono text-slate-800 break-all select-all">${sanitizeHtml(String(value))}</div>
+                `;
+                tableOutputPane.appendChild(itemRow);
+            }
+        }
+
+        // Utility: Convert bytes to readable formats
+        function humanReadableSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Utility: Sanitize Strings against HTML injection attacks
+        function sanitizeHtml(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // Client-side Sanitization Core Engine (Redraws image data locally to dump tags)
+        cleanAndSaveBtn.addEventListener('click', () => {
+            if (!loadedFile || !loadedFile.type.startsWith('image/')) return;
+
+            renderSystemBanner('success', 'Constructing privacy sandbox environment. Re-assembling image data...', 'fa-solid fa-spinner animate-spin text-emerald-500');
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const sandboxImage = new Image();
+                sandboxImage.onload = function() {
+                    try {
+                        const sandboxCanvas = document.createElement('canvas');
+                        sandboxCanvas.width = sandboxImage.width;
+                        sandboxCanvas.height = sandboxImage.height;
+                        
+                        const context = sandboxCanvas.getContext('2d');
+                        context.drawImage(sandboxImage, 0, 0);
+
+                        sandboxCanvas.toBlob((cleanBlob) => {
+                            if (!cleanBlob) {
+                                renderSystemBanner('error', 'Error rendering the cleansed canvas.');
+                                return;
+                            }
+                            const cleanUrl = URL.createObjectURL(cleanBlob);
+                            const downloadTrigger = document.createElement('a');
+                            downloadTrigger.href = cleanUrl;
+                            downloadTrigger.download = `cleansed_${loadedFile.name}`;
+                            document.body.appendChild(downloadTrigger);
+                            downloadTrigger.click();
+                            document.body.removeChild(downloadTrigger);
+                            URL.revokeObjectURL(cleanUrl);
+
+                            renderSystemBanner('success', `Metadata successfully stripped! Download saved: cleansed_${loadedFile.name}`);
+                        }, loadedFile.type);
+                    } catch (err) {
+                        renderSystemBanner('error', `Sanitization process encountered an error: ${err.message}`);
+                    }
+                };
+                sandboxImage.src = event.target.result;
+            };
+            reader.readAsDataURL(loadedFile);
+        });
+
+        // Copy raw JSON to clipboard using iframe-safe classic copy implementation
+        copyJsonBtn.addEventListener('click', () => {
+            const rawText = rawJsonBlock.textContent;
+            
+            // Create hidden dynamic text space to execute manual platform commands
+            const hiddenTextarea = document.createElement('textarea');
+            hiddenTextarea.value = rawText;
+            hiddenTextarea.setAttribute('readonly', '');
+            hiddenTextarea.style.position = 'absolute';
+            hiddenTextarea.style.left = '-9999px';
+            document.body.appendChild(hiddenTextarea);
+            hiddenTextarea.select();
+            
+            try {
+                const complete = document.execCommand('copy');
+                if (complete) {
+                    const originalText = copyJsonBtn.innerHTML;
+                    copyJsonBtn.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> <span>Copied!</span>';
+                    setTimeout(() => {
+                        copyJsonBtn.innerHTML = originalText;
+                    }, 2000);
+                }
+            } catch (err) {
+                renderSystemBanner('error', 'Failed to copy text safely.');
+            }
+            document.body.removeChild(hiddenTextarea);
+        });
+
+        // Trigger dialog boxes or system message configurations
+        function renderSystemBanner(type, message, customIcon = null) {
+            noticeBanner.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-200', 'text-emerald-800', 'bg-rose-50', 'border-rose-200', 'text-rose-800', 'bg-amber-50', 'border-amber-200', 'text-amber-800');
+            
+            if (type === 'success') {
+                noticeBanner.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+                noticeIcon.innerHTML = customIcon || '<i class="fa-solid fa-circle-check text-emerald-500"></i>';
+            } else if (type === 'error') {
+                noticeBanner.classList.add('bg-rose-50', 'border-rose-200', 'text-rose-800');
+                noticeIcon.innerHTML = customIcon || '<i class="fa-solid fa-triangle-exclamation text-rose-500"></i>';
+            } else {
+                noticeBanner.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+                noticeIcon.innerHTML = customIcon || '<i class="fa-solid fa-circle-exclamation text-amber-500"></i>';
+            }
+            
+            noticeText.textContent = message;
+        }
+
+        function dismissNotice() {
+            noticeBanner.classList.add('hidden');
+        }
+
+        function resetInspectDisplays() {
+            mapWrapper.classList.add('hidden');
+            tableOutputPane.innerHTML = '';
+            rawJsonBlock.textContent = '';
+            toggleDetailsTab('table');
+        }
+
+        // Reset App back to Dropzone
+        resetAppBtn.addEventListener('click', () => {
+            loadedFile = null;
+            metadataRegistry = {};
+            fileInput.value = '';
+            htmlInput.value = '';
+            dismissNotice();
+            inspectorDeck.classList.add('hidden');
+            switchInputMode(currentMode);
+        });
+
+        // Info Modal Control Hooks
+        infoTrigger.addEventListener('click', () => infoModal.classList.remove('hidden'));
+        closeInfoModal.addEventListener('click', () => infoModal.classList.add('hidden'));
+        closeInfoModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+
+        window.onclick = function(event) {
+            if (event.target === infoModal) {
+                infoModal.classList.add('hidden');
+            }
+        };
+    </script>
+</body>
+</html>
